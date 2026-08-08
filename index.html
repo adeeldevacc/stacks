@@ -637,7 +637,7 @@ async function openReader(id){
 
   const initialMode = (book.readMode === "reflow" && reader.reflowAvailable) ? "reflow" : "original";
   if (initialMode === "reflow") { await switchReaderMode("reflow", true); }
-  else { reader.mode = "original"; restoreScrollPositionForMode(); }
+  else { await switchReaderMode("original", true); }
 
   settingsSheet.dataset.mode = reader.mode;
   document.querySelectorAll("#mode-segmented button").forEach(b => b.classList.toggle("active", b.dataset.mode === reader.mode));

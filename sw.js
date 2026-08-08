@@ -3,7 +3,10 @@
 // opens and works offline after the first visit. All book data itself lives
 // in IndexedDB on the device, never here and never on a server.
 
-const CACHE = "stacks-shell-v1";
+// Bump this whenever the app shell changes.  The previous cache-first v1
+// strategy kept installed PWAs on an old index.html, so newer reader controls
+// (including the Original/Reflow switch) never reached those clients.
+const CACHE = "stacks-shell-v2";
 
 const SHELL_URLS = [
   "./",
@@ -25,9 +28,8 @@ self.addEventListener("install", (event) => {
           })
         )
       )
-    )
+    ).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -41,6 +43,23 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // The document must be refreshed from the network whenever possible. This
+  // lets an already-installed PWA receive UI and behaviour fixes; the cached
+  // document remains the offline fallback.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            caches.open(CACHE).then((cache) => cache.put(event.request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
